@@ -1,0 +1,46 @@
+version: "3.4"
+
+services:
+  webserver:
+    container_name: apache-php
+    image: eriktonon/php:7.3.12
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes: 
+      - ${DOCUMENT_ROOT-./html}:/var/www/html
+      - ${PHP_INI-./.config/php/php.ini}:/usr/local/etc/php/php.ini
+      - ${VHOSTS_DIR-./.config/vhosts}:/etc/apache2/sites-enabled
+      - ${LOG_DIR-./logs/apache2}:/var/log/apache2
+	  - ./certbot-etc:/etc/letsencrypt
+	  - ./cert:/etc/ssl
+    networks: 
+      - lamp-stack
+	  
+  mysql:
+    container_name: mysql
+    image: eriktonon/mysql:8.0
+    ports:
+      - "3306:3306"
+    volumes: 
+      - ${MYSQL_DATA_DIR-./data/mysql}:/var/lib/mysql
+      - ${MYSQL_LOG_DIR-./logs/mysql}:/var/log/mysql
+    env_file: 
+      - .env
+    command:  mysqld --character-set-server=utf8 --collation-server=utf8_unicode_ci --init-connect='SET NAMES UTF8;' --innodb-flush-log-at-trx-commit=0
+    networks: 
+      - lamp-stack
+  
+  certbot:
+    depends_on:
+      - webserver
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - ./certbot-etc:/etc/letsencrypt
+      - ${DOCUMENT_ROOT-./html}:/var/www/html
+    command: certonly --webroot --webroot-path=/var/www/html --email info@yourdomain.com --agree-tos --no-eff-email --force-renewal -d {www.yourdomain.com}
+
+  
+networks:
+  lamp-stack:
